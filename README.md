@@ -48,6 +48,16 @@ python -m brain_tumour.export BRATS_001 BRATS_002          # NIfTI masks + JSON 
 
 Use all 484 labeled cases if time/hardware permit (edit `split.py` `__main__`), still split by patient. The unlabeled `imagesTs/` is not ground truth.
 
+```powershell
+python -m brain_tumour.report BRATS_367 BRATS_215 BRATS_360   # figures + GIFs -> reports/figures/
+```
+
+## Results (starter run: 21/4/5 patients, 15 epochs on CPU)
+
+Held-out test (5 patients), mean Dice: **WT 0.813, TC 0.777, ET 0.754**. Tiny cohort, 2D model, not clinical. Details, per-patient table, figures and GIFs: [`reports/RESULTS.md`](reports/RESULTS.md).
+
+![Overlays](reports/figures/overlays_good_typical_difficult.png)
+
 ## Viewer
 
 ```powershell
