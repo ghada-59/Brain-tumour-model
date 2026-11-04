@@ -1,0 +1,10 @@
+# Install PyTorch first with the official selector: https://pytorch.org/get-started/locally/
+monai
+nibabel
+numpy
+matplotlib
+scikit-learn
+tqdm
+jupyter
+ipykernel
+pytest
