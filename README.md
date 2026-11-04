@@ -54,9 +54,33 @@ python -m brain_tumour.report BRATS_367 BRATS_215 BRATS_360   # figures + GIFs -
 
 ## Results (starter run: 21/4/5 patients, 15 epochs on CPU)
 
-Held-out test (5 patients), mean Dice: **WT 0.813, TC 0.777, ET 0.754**. Tiny cohort, 2D model, not clinical. Details, per-patient table, figures and GIFs: [`reports/RESULTS.md`](reports/RESULTS.md).
+Held-out test (5 patients, evaluated once), mean Dice: **WT 0.813 ± 0.057, TC 0.777 ± 0.065, ET 0.754 ± 0.033**. Tiny cohort, 2D model, not clinical. Full per-patient table, method and limitations: [`reports/RESULTS.md`](reports/RESULTS.md).
 
-![Overlays](reports/figures/overlays_good_typical_difficult.png)
+### Reference annotation vs. model (good, typical, difficult case)
+
+![Overlays: reference vs model on BRATS_367, BRATS_215, BRATS_360](reports/figures/overlays_good_typical_difficult.png)
+
+### Training and test metrics
+
+![Training curves](reports/figures/training_curves.png)
+
+![Test Dice per patient](reports/figures/test_dice_per_patient.png)
+
+### Animations: scrolling through the axial slices (reference left, model right)
+
+| BRATS_367 (good) | BRATS_215 (typical) | BRATS_360 (lowest WT) |
+|---|---|---|
+| ![BRATS_367 slices](reports/figures/BRATS_367_slices.gif) | ![BRATS_215 slices](reports/figures/BRATS_215_slices.gif) | ![BRATS_360 slices](reports/figures/BRATS_360_slices.gif) |
+
+### Animations: 3D tumour labels rotating (reference left, model right)
+
+| BRATS_367 | BRATS_215 | BRATS_360 |
+|---|---|---|
+| ![BRATS_367 3D](reports/figures/BRATS_367_3d_rotation.gif) | ![BRATS_215 3D](reports/figures/BRATS_215_3d_rotation.gif) | ![BRATS_360 3D](reports/figures/BRATS_360_3d_rotation.gif) |
+
+The isolated fragments in the model's 3D output are false positives typical of a slice-by-slice 2D network.
+
+Images show slices derived from the MSD dataset (CC BY-SA 4.0); see [`reports/ATTRIBUTION.md`](reports/ATTRIBUTION.md).
 
 ## Viewer
 
