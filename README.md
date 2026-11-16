@@ -34,7 +34,6 @@ The dashboard displays the committed figures and historical metrics with explici
 
 Educational pipeline: brain MRI (MSD Task01 BrainTumour) → patient-level split → **from-scratch 2D U-Net** (MONAI/PyTorch) → honest held-out evaluation (Dice WT/TC/ET) → local React + TypeScript + Three.js viewer with linked axial/coronal/sagittal planes and a 3D mask.
 
-> Student learning prototype on de-identified research data. **Not a medical device**, not clinically validated, never for diagnosis or health decisions.
 
 ## Layout
 
