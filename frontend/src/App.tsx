@@ -1,88 +1,22 @@
-import { useEffect, useMemo, useState } from "react";
-import PlaneView, { Cursor } from "./PlaneView";
-import Surface3D from "./Surface3D";
-import { Volume, loadNifti } from "./nifti";
-import { CHANNEL_NAMES, LABELS } from "./labels";
-
-type Overlay = "none" | "reference" | "prediction";
-
-interface CaseData { mri: Volume; reference: Volume; prediction: Volume }
-
-export default function App() {
-  const [cases, setCases] = useState<string[]>([]);
-  const [caseId, setCaseId] = useState("");
-  const [data, setData] = useState<CaseData | null>(null);
-  const [error, setError] = useState("");
-  const [channel, setChannel] = useState(0);
-  const [overlay, setOverlay] = useState<Overlay>("reference");
-  const [cursor, setCursor] = useState<Cursor>([0, 0, 0]);
-  const [opacity, setOpacity] = useState(0.8);
-  const [reset, setReset] = useState(0);
-
-  useEffect(() => {
-    fetch("/cases/index.json")
-      .then((r) => { if (!r.ok) throw new Error("Run `python -m brain_tumour.export <CASE_ID>` first."); return r.json(); })
-      .then((ids: string[]) => { setCases(ids); setCaseId(ids[0] ?? ""); })
-      .catch((e) => setError(String(e.message ?? e)));
-  }, []);
-
-  useEffect(() => {
-    if (!caseId) return;
-    setData(null);
-    const base = `/cases/${caseId}`;
-    Promise.all([loadNifti(`${base}/mri.nii.gz`), loadNifti(`${base}/reference.nii.gz`), loadNifti(`${base}/prediction.nii.gz`)])
-      .then(([mri, reference, prediction]) => {
-        setData({ mri, reference, prediction });
-        setCursor([Math.floor(mri.dims[0] / 2), Math.floor(mri.dims[1] / 2), Math.floor(mri.dims[2] / 2)]);
-      })
-      .catch((e) => setError(String(e.message ?? e)));
-  }, [caseId]);
-
-  const mask = useMemo(() => (data && overlay !== "none" ? data[overlay] : null), [data, overlay]);
-  const max = useMemo(() => {
-    if (!data) return 1;
-    const [nx, ny, nz] = data.mri.dims;
-    const off = channel * nx * ny * nz;
-    let m = 0;
-    for (let i = 0; i < nx * ny * nz; i += 7) m = Math.max(m, data.mri.data[off + i] as number);
-    return m * 0.8 || 1;
-  }, [data, channel]);
-
-  return (
-    <div className="app">
-      <header>
-        <h1>3D Brain Tumour Model</h1>
-        <p className="warn">Educational prototype using de-identified research data. Not a medical device; not clinically validated.</p>
-      </header>
-      {error && <div className="error">{error}</div>}
-      <div className="controls">
-        <label>Case <select value={caseId} onChange={(e) => setCaseId(e.target.value)}>{cases.map((c) => <option key={c}>{c}</option>)}</select></label>
-        <label>Sequence <select value={channel} onChange={(e) => setChannel(Number(e.target.value))}>{CHANNEL_NAMES.map((n, i) => <option key={n} value={i}>{n}</option>)}</select></label>
-        <label>Overlay <select value={overlay} onChange={(e) => setOverlay(e.target.value as Overlay)}>
-          <option value="none">None</option><option value="reference">Reference annotation</option><option value="prediction">Your model</option></select></label>
-        <label>3D opacity <input type="range" min={0.1} max={1} step={0.05} value={opacity} onChange={(e) => setOpacity(Number(e.target.value))} /></label>
-        <button onClick={() => setReset((n) => n + 1)}>Reset 3D view</button>
-      </div>
-      <div className="legend">
-        {Object.entries(LABELS).map(([k, v]) => (
-          <span key={k}><i style={{ background: `rgb(${v.color.join(",")})` }} />{k} · {v.name}</span>
-        ))}
-        <span><i style={{ background: "#333" }} />0 · Background</span>
-      </div>
-      {data ? (
-        <div className="grid">
-          {(["axial", "coronal", "sagittal"] as const).map((a) => (
-            <figure key={a}>
-              <figcaption>{a} — {CHANNEL_NAMES[channel]} — {overlay === "none" ? "no overlay" : overlay}</figcaption>
-              <PlaneView axis={a} mri={data.mri} channel={channel} mask={mask} cursor={cursor} onCursor={setCursor} max={max} />
-            </figure>
-          ))}
-          <figure>
-            <figcaption>3D surface — {overlay === "none" ? "choose an overlay" : overlay} (display-downsampled)</figcaption>
-            <Surface3D mask={mask} opacity={opacity} resetSignal={reset} />
-          </figure>
-        </div>
-      ) : !error && <p>Loading…</p>}
-    </div>
-  );
+import {useState} from "react";
+import AppViewer from "./App";
+type Tab="overview"|"viewer"|"review"|"evaluation"|"method"|"limitations";
+const tabs:{id:Tab;name:string;group:string}[]=[{id:"overview",name:"Overview",group:"WORKSPACE"},{id:"viewer",name:"MRI & Segmentation",group:"WORKSPACE"},{id:"review",name:"3D Review",group:"ANALYSIS"},{id:"evaluation",name:"Model Evaluation",group:"ANALYSIS"},{id:"method",name:"Methodology",group:"PROJECT"},{id:"limitations",name:"Limitations",group:"PROJECT"}];
+const base=import.meta.env.BASE_URL,fig=(n:string)=>base+"research-figures/"+n;
+function Metric({v,l,n}:{v:string;l:string;n:string}){return <article className="metric"><small>{l}</small><strong>{v}</strong><span>{n}</span></article>}
+function Figure({src,title,desc}:{src:string;title:string;desc:string}){return <figure className="figure"><img src={src} alt={title}/><figcaption><b>{title}</b><span>{desc}</span></figcaption></figure>}
+export default function App(){
+ const [tab,setTab]=useState<Tab>("overview"),[light,setLight]=useState(false),[menu,setMenu]=useState(false);
+ const go=(t:Tab)=>{setTab(t);location.hash=t;window.scrollTo(0,0);setMenu(false)};
+ return <div className={light?"shell light":"shell"}>
+ <aside className={menu?"sidebar open":"sidebar"}><div className="logo"><b>N</b><span>NEURO/LAB<small>BIOMEDICAL AI WORKSPACE</small></span></div><p className="nav-caption">RESEARCH PROJECT · 01</p>{["WORKSPACE","ANALYSIS","PROJECT"].map(g=><div className="nav-group" key={g}><small>{g}</small>{tabs.filter(t=>t.group===g).map(t=><button className={tab===t.id?"selected":""} onClick={()=>go(t.id)} key={t.id}>{t.name}</button>)}</div>)}<div className="side-bottom">Educational research prototype<br/>Not for clinical use.<a href="https://github.com/ghada-59/Brain-tumour-model">GitHub repository ↗</a></div></aside>
+ <main><header><button className="hamb" onClick={()=>setMenu(!menu)}>☰</button><span>Research workspace / <b>{tabs.find(t=>t.id===tab)?.name}</b></span><div><i>●</i> STATIC RESEARCH BUILD <button onClick={()=>setLight(!light)}>{light?"Dark":"Light"} mode</button><a href="https://github.com/ghada-59/Brain-tumour-model">GitHub ↗</a></div></header>
+ <div className="content">
+ {tab==="overview"&&<><section className="hero"><div><small className="kicker">MEDICAL IMAGING · DEEP LEARNING</small><h1>Brain tumour<br/><em>segmentation</em></h1><p>A research workstation for exploring multi-sequence brain MRI, reviewing segmentation evidence and understanding a slice-wise U-Net pipeline.</p><button onClick={()=>go("viewer")}>Open MRI workspace →</button></div><img src={fig("overlays_good_typical_difficult.png")} alt="Reference and model MRI overlays"/></section><div className="heading"><div><small>EXPERIMENT SNAPSHOT</small><h2>Historical baseline</h2></div><label>REPORTED · NOT RE-RUN</label></div><div className="metrics"><Metric v="0.813 ± 0.057" l="WHOLE TUMOUR · WT" n="Mean Dice · 5 test patients"/><Metric v="0.777 ± 0.065" l="TUMOUR CORE · TC" n="Mean Dice · 5 test patients"/><Metric v="0.754 ± 0.033" l="ENHANCING · ET" n="Mean Dice · 5 test patients"/><Metric v="30 / 484" l="LABELLED CASES USED" n="21 train · 4 validation · 5 test"/></div><div className="notice"><b>!</b><p>Historical reported baseline — not reproduced or rerun by this dashboard redesign. Five test patients are insufficient to establish generalization or clinical performance.</p></div><div className="heading"><div><small>COMMITTED VISUAL EVIDENCE</small><h2>Research figures</h2></div><button className="plain" onClick={()=>go("evaluation")}>All evaluation →</button></div><div className="figures"><Figure src={fig("training_curves.png")} title="Training dynamics" desc="Recorded training and validation curves"/><Figure src={fig("test_dice_per_patient.png")} title="Patient-level Dice" desc="Historical test results across five cases"/></div></>}
+ {tab==="viewer"&&<><div className="page-title"><small>INTERACTIVE RESEARCH VIEWER</small><h1>MRI & segmentation</h1><p>Original linked-plane and Three.js viewer is preserved below. Public case volumes are not included.</p></div><AppViewer/></>}
+ {tab==="review"&&<><div className="page-title"><small>VISUALIZATION</small><h1>3D review</h1><p>Committed label visualizations from the historical research run. The network itself is slice-wise 2D.</p></div><div className="figures"><Figure src={fig("BRATS_367_3d_rotation.gif")} title="BRATS_367 · 3D labels" desc="Reference and model mask shell"/><Figure src={fig("BRATS_215_3d_rotation.gif")} title="BRATS_215 · 3D labels" desc="Reference and model mask shell"/><Figure src={fig("BRATS_360_3d_rotation.gif")} title="BRATS_360 · 3D labels" desc="Reference and model mask shell"/><Figure src={fig("BRATS_367_slices.gif")} title="Axial slice comparison" desc="Reference annotation versus model prediction"/></div></>}
+ {tab==="evaluation"&&<><div className="page-title"><small>MODEL PERFORMANCE</small><h1>Evaluation evidence</h1><p>Historical starter-run results, presented with their original experimental context.</p></div><div className="notice">Historical reported baseline — not reproduced or rerun by this dashboard redesign.</div><div className="metrics three"><Metric v="0.813 ± 0.057" l="WHOLE TUMOUR · WT" n="5 test patients"/><Metric v="0.777 ± 0.065" l="TUMOUR CORE · TC" n="5 test patients"/><Metric v="0.754 ± 0.033" l="ENHANCING · ET" n="5 test patients"/></div><div className="figures"><Figure src={fig("test_dice_per_patient.png")} title="Per-patient test Dice" desc="Five-patient historical evaluation"/><Figure src={fig("training_curves.png")} title="Training curves" desc="Historical 15-epoch starter run"/><Figure src={fig("overlays_good_typical_difficult.png")} title="Qualitative overlays" desc="Good, typical and difficult examples"/></div></>}
+ {tab==="method"&&<><div className="page-title"><small>TECHNICAL OVERVIEW</small><h1>Methodology</h1><p>From multi-sequence MRI to research segmentation.</p></div><div className="steps">{[["01","MRI input","FLAIR, T1w, T1gd and T2w four-channel input."],["02","Patient-level split","Historical starter run: 30 labelled cases, 21 train / 4 validation / 5 test."],["03","2D U-Net","MONAI / PyTorch; one axial slice per forward pass."],["04","Nested regions","WT (1/2/3), TC (2/3) and ET (3) evaluated separately."],["05","Evaluation & review","Historical Dice and Three.js mask visualization."]].map(x=><article><b>{x[0]}</b><div><h3>{x[1]}</h3><p>{x[2]}</p></div></article>)}</div></>}
+ {tab==="limitations"&&<><div className="page-title"><small>SCIENTIFIC TRANSPARENCY</small><h1>Limitations & scope</h1><p>What this prototype demonstrates — and what it does not.</p></div><div className="limits">{[["Small cohort","30 of 484 labelled cases; only four validation and five test patients."],["2D architecture","The network processes axial slices independently; it is not a 3D U-Net."],["Test-set reuse","The original five test patients have already been inspected and must not be reused for tuning as an untouched test set."],["No external validation","No independent institution, scanner cohort or prospective validation."],["No clinical validation","Dice overlap against research annotations does not establish diagnostic accuracy, safety or patient benefit."],["Public viewer data","The NIfTI viewer requires exported case volumes, intentionally excluded from the public Pages build."]] .map((x,i)=><article><b>0{i+1}</b><div><h3>{x[0]}</h3><p>{x[1]}</p></div></article>)}</div></>}
+ </div><footer>NEURO/LAB · BRAIN TUMOUR SEGMENTATION <span>EDUCATIONAL RESEARCH SOFTWARE · NOT A MEDICAL DEVICE</span></footer></main></div>
 }
