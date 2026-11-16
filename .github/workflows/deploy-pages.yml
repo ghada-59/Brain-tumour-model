@@ -1,7 +1,7 @@
 name: Deploy research dashboard to GitHub Pages
 on:
   push:
-    branches: [main]
+    branches: [main, ui/brain-tumour-dashboard-pages]
     paths: ["frontend/**","reports/figures/**",".github/workflows/deploy-pages.yml"]
   workflow_dispatch:
 permissions:
