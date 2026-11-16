@@ -1,118 +1,115 @@
-# 3D Brain Tumour Model
+# Brain Tumour MRI Segmentation — 2D U-Net Research Prototype
 
-Educational pipeline: brain MRI (MSD Task01 BrainTumour) → patient-level split → **from-scratch 2D U-Net** (MONAI/PyTorch) → honest held-out evaluation (Dice WT/TC/ET) → local React + TypeScript + Three.js viewer with linked axial/coronal/sagittal planes and a 3D mask.
+A reproducible, patient-level MRI segmentation pipeline built with MONAI/PyTorch, plus a React/TypeScript/Three.js viewer for axial, coronal and sagittal inspection.
 
-> Student learning prototype on de-identified research data. **Not a medical device**, not clinically validated, never for diagnosis or health decisions.
+> **Scope:** educational research prototype on the Medical Segmentation Decathlon (MSD) Task01 BrainTumour dataset. It is **not a medical device**, is not clinically validated, and must not be used for diagnosis, treatment planning or patient-care decisions.
 
-## Layout
+## What this project demonstrates
+
+- Multi-modal MRI loading (FLAIR, T1w, T1gd, T2w) and per-channel non-zero-voxel normalization.
+- Patient-level train/validation/test partitioning **before** 2D slice extraction.
+- A from-scratch 2D MONAI U-Net baseline (four input modalities; four output labels).
+- WT/TC/ET Dice evaluation and per-patient result reporting.
+- NIfTI prediction export and a local multi-planar/3D visualization interface.
+
+This is a 2D slice-wise model. The 3D viewer visualizes its output; it does not make the neural network a 3D model.
+
+## Repository structure
 
 | Path | Purpose |
-|------|---------|
-| `notebooks/` | Exploration (`01_inspect_data.ipynb`) |
-| `src/brain_tumour/` | download, split, data, model, train, evaluate, predict, export |
-| `models/` | Best checkpoint (`best.pt`, git-ignored) |
-| `frontend/` | React viewer |
-| `reports/` | Attribution, results, limitations |
-| `splits.csv` | Patient IDs → train/val/test (generated) |
-| `tests/` | Split + Dice unit tests |
+|---|---|
+| `src/brain_tumour/` | Data loading, splitting, model, training, inference and metrics |
+| `tests/` | Unit tests for split integrity and segmentation metrics |
+| `notebooks/` | Dataset exploration |
+| `reports/RESULTS.md` | Baseline results, cohort details and limitations |
+| `reports/ATTRIBUTION.md` | Dataset and asset attribution |
+| `frontend/` | React/TypeScript/Three.js viewer |
+| `splits.csv` | Generated patient-level split (do not hand-edit) |
 
-## Setup (Windows PowerShell)
+## Setup
+
+Windows PowerShell:
 
 ```powershell
 py -3.11 -m venv .venv
 .venv\Scripts\Activate.ps1
 python -m pip install --upgrade pip
-# 1) Install PyTorch from https://pytorch.org/get-started/locally/ (CPU option if unsure)
-# 2) Then:
+# Install a compatible PyTorch build using the official PyTorch selector first.
 python -m pip install -r requirements.txt
-python -c "import torch, monai, nibabel; print(torch.__version__, monai.__version__, nibabel.__version__, torch.cuda.is_available())"
+$env:PYTHONPATH = "src"
+python -m pytest tests
 ```
 
-macOS/Linux: `python3 -m venv .venv && source .venv/bin/activate`.
+macOS/Linux:
 
-Select the `.venv` kernel in VS Code for notebooks. **Checkpoint 1**: record the versions and the device check.
-
-## Pipeline
-
-Run from the project root with `PYTHONPATH=src` (PowerShell: `$env:PYTHONPATH="src"`).
-
-```powershell
-python -m brain_tumour.download      # ~7.6 GB archive, needs >= 15 GB free; writes data/raw/ (git-ignored)
-# read data/raw/Task01_BrainTumour/dataset.json, fill PROVENANCE.txt  (Checkpoint 2)
-# notebooks/01_inspect_data.ipynb                                       (inspect one case)
-python -m brain_tumour.split         # 30-case starter: 21 train / 4 val / 5 test, seed 42 -> splits.csv  (Checkpoint 3)
-python -m brain_tumour.train --epochs 10 --batch-size 8   # random init; best checkpoint by VALIDATION Dice (Checkpoint 4)
-python -m brain_tumour.evaluate      # run ONCE on the test patients after choices are frozen
-python -m brain_tumour.export BRATS_001 BRATS_002          # NIfTI masks + JSON sidecar -> frontend/public/cases/
+```bash
+python3 -m venv .venv
+source .venv/bin/activate
+python -m pip install --upgrade pip
+# Install a compatible PyTorch build using the official PyTorch selector first.
+python -m pip install -r requirements.txt
+export PYTHONPATH=src
+python -m pytest tests
 ```
 
-Use all 484 labeled cases if time/hardware permit (edit `split.py` `__main__`), still split by patient. The unlabeled `imagesTs/` is not ground truth.
+## Reproduce the pipeline
 
-```powershell
-python -m brain_tumour.report BRATS_367 BRATS_215 BRATS_360   # figures + GIFs -> reports/figures/
-```
+1. Download and inspect the dataset. The archive is large; ensure sufficient disk space.
+2. Review the dataset's own `dataset.json`, record the exact release/version and source in your local provenance notes, and verify image/label pairing.
+3. Generate the split. By default, **all paired labelled patients** are assigned deterministically using 70% train / 15% validation / 15% test:
 
-## Results (starter run: 21/4/5 patients, 15 epochs on CPU)
+   ```bash
+   python -m brain_tumour.download
+   python -m brain_tumour.split --seed 42
+   ```
 
-Held-out test (5 patients, evaluated once), mean Dice: **WT 0.813 ± 0.057, TC 0.777 ± 0.065, ET 0.754 ± 0.033**. Tiny cohort, 2D model, not clinical. Full per-patient table, method and limitations: [`reports/RESULTS.md`](reports/RESULTS.md).
+   For a small software smoke test only, an explicit subset can be requested:
 
-### Reference annotation vs. model (good, typical, difficult case)
+   ```bash
+   python -m brain_tumour.split --train 21 --val 4 --test 5 --seed 42
+   ```
 
-![Overlays: reference vs model on BRATS_367, BRATS_215, BRATS_360](reports/figures/overlays_good_typical_difficult.png)
+   The generated `splits.csv` is the source of truth. Preserve it with the experiment and record its SHA-256-derived identifier. Never create slices first and split them afterward.
+4. Train using only the training patients; choose checkpoints using validation data:
 
-### Training and test metrics
+   ```bash
+   python -m brain_tumour.train --epochs 15 --batch-size 8
+   ```
 
-![Training curves](reports/figures/training_curves.png)
+5. Evaluate the selected checkpoint on the held-out test patients only after model and preprocessing choices are frozen:
 
-![Test Dice per patient](reports/figures/test_dice_per_patient.png)
+   ```bash
+   python -m brain_tumour.evaluate
+   ```
 
-### Animations: scrolling through the axial slices (reference left, model right)
+6. Export selected predictions and run the viewer (see below).
 
-| BRATS_367 (good) | BRATS_215 (typical) | BRATS_360 (lowest WT) |
-|---|---|---|
-| ![BRATS_367 slices](reports/figures/BRATS_367_slices.gif) | ![BRATS_215 slices](reports/figures/BRATS_215_slices.gif) | ![BRATS_360 slices](reports/figures/BRATS_360_slices.gif) |
+**Important:** the published baseline below used only 30 patients. Its test set has already been inspected. Do not tune that baseline against those same five patients and continue calling them an untouched test set. A new full-cohort experiment needs a newly generated split, a fresh run, and a newly held-out test cohort.
 
-### Animations: 3D tumour labels rotating (reference left, model right)
+## Baseline results
 
-| BRATS_367 | BRATS_215 | BRATS_360 |
-|---|---|---|
-| ![BRATS_367 3D](reports/figures/BRATS_367_3d_rotation.gif) | ![BRATS_215 3D](reports/figures/BRATS_215_3d_rotation.gif) | ![BRATS_360 3D](reports/figures/BRATS_360_3d_rotation.gif) |
-
-The isolated fragments in the model's 3D output are false positives typical of a slice-by-slice 2D network.
-
-Images show slices derived from the MSD dataset (CC BY-SA 4.0); see [`reports/ATTRIBUTION.md`](reports/ATTRIBUTION.md).
+The initial 30-patient starter experiment reported mean test Dice of WT 0.813, TC 0.777 and ET 0.754 (five test patients). These are historical baseline measurements, **not independently reproduced in this update** and not estimates of clinical performance. The cohort is too small to support a generalization claim. See [the detailed results and limitations](reports/RESULTS.md).
 
 ## Viewer
 
-```powershell
+```bash
 cd frontend
 npm install
 npm run dev
 ```
 
-Features: four MRI sequences with labels, one shared voxel crosshair across the three planes, selector *Reference annotation* vs *Your model* with legend for labels 0–3, 3D mask with rotate/zoom/opacity/reset. The 3D view draws boundary voxels at 2× display downsampling; metrics always come from the full voxel masks. The viewer shows the voxel grid and does not reorient from the affine — verify alignment in 3D Slicer first.
+The viewer provides linked multi-planar slice navigation, modality selection, reference-versus-prediction selection and a 3D mask view. It currently visualizes the voxel grid and does not fully reorient data using the NIfTI affine. Verify orientation/alignment in a dedicated medical-image viewer before interpreting overlays.
 
-## Honesty rules baked in
+## Current limitations and next research steps
 
-- Split is by **patient** before any 2D slicing; seed and `splits.csv` hash are stored in checkpoints.
-- The model is a **2D** U-Net, not a true 3D network.
-- WT (1/2/3), TC (2/3), ET (3) are nested; each Dice is computed separately, never added.
-- Empty-region Dice: both empty → 1.0, one empty → 0.0.
-- The test set is evaluated once; if you tune after seeing it, it has become validation data.
-- The optional MONAI pretrained bundle, if used, must be credited separately and never described as your training.
+- The initial experiment used 30/484 labelled patients, with only five test patients.
+- The model is a 2D U-Net with no volumetric context; isolated 3D false-positive fragments were observed.
+- The initial validation and test aggregation procedures differ; their reported Dice values are not directly comparable.
+- No independent external cohort, multi-seed study, confidence intervals, calibration analysis or clinical workflow validation has been completed.
+- No claim is made that the viewer or model is suitable for clinical use.
 
-## Troubleshooting
+Next experiments should use patient-level splits across the full labelled cohort, report patient-wise metrics and uncertainty, compare a transparent 2D baseline with a volumetric/2.5D approach and a strong established reference such as nnU-Net, and document preprocessing, seeds, compute, failure cases and ablations. The test cohort must remain untouched until final evaluation.
 
-| Problem | Check |
-|---|---|
-| `python` not found | Install Python 3.10/3.11; restart terminal; try `py -3.11` |
-| Import error | Activate `.venv`; print `sys.executable` in the notebook |
-| Download stuck / TAR fails | Free disk, retry, compare size; don't rename partial files |
-| Image blank | Print min/max, finite count; check channel and orientation |
-| Overlay shifted | Compare shape + affine; never drag the mask by eye |
-| Loss shape error | Labels are integer IDs shaped `[B,1,H,W]`, values 0–3 |
-| OOM / slow | Smaller batch, fewer patients/epochs, same split |
-| Train high, test poor | Leakage, imbalance, overfitting, label mapping |
-| 3D jagged | Check spacing; smoothing is display-only |
+## Data and attribution
 
-Tests: `python -m pytest tests`. See `reports/ATTRIBUTION.md` for credits, the report paragraph template and the AI use log.
+The MSD Task01 BrainTumour dataset is distributed under CC BY-SA 4.0 according to its dataset documentation. Review `reports/ATTRIBUTION.md` and the dataset's own terms before redistributing data-derived assets. Do not commit the raw dataset, patient data, model checkpoints or secrets.
