@@ -1,58 +1,78 @@
-# Results: 2D U-Net on MSD Task01 BrainTumour
+# Results: 2D U-Net on MSD Task01 BrainTumour (starter subset)
 
-> Educational research prototype. These are segmentation-overlap measurements against supplied research annotations, **not clinical performance**. Not a medical device.
+> Educational prototype on de-identified research data. These are segmentation overlap measurements against supplied annotations, **not clinical performance**. Not a medical device.
 
-## Historical starter experiment
+## Cohort and method
 
-The existing baseline used a small 30-patient subset: 21 training, 4 validation and 5 test patients (seed 42). It trained a randomly initialized MONAI 2D U-Net for 15 CPU epochs. The model processes one axial slice at a time; it is not a volumetric 3D network.
+| Item | Value |
+|---|---|
+| Dataset | Medical Segmentation Decathlon, Task01 BrainTumour (484 labeled cases available), CC BY-SA 4.0 |
+| Patients used | 30 of 484: **21 train / 4 validation / 5 test**, split by patient, seed 42 (`splits.csv`) |
+| Test patients | BRATS_102, BRATS_215, BRATS_333, BRATS_360, BRATS_367 |
+| Model | MONAI `UNet`, `spatial_dims=2`, 4 in / 4 out channels, channels (16, 32, 64, 128), strides (2, 2, 2), 2 residual units, **403,157 parameters**, random initialization, no pretrained weights |
+| This is a **2D** model | It sees one axial slice at a time; it is not a true 3D network |
+| Loss / optimizer | `DiceCELoss(softmax)`, AdamW, lr 1e-3, batch size 8 |
+| Training | 15 epochs on CPU (about 22 minutes), `--epochs 15 --batch-size 8` |
+| Preprocessing | Channels FLAIR, T1w, T1gd, T2w (order verified in `dataset.json`); per-channel z-score on non-zero voxels; no resampling; flip augmentation on train only; empty slices subsampled (20 %) |
+| Checkpoint | Chosen on **validation** mean Dice: epoch 9 (WT 0.913, TC 0.778, ET 0.662) |
+| Software | torch 2.14.1 (CPU), monai 1.6.1, nibabel 5.4.2 |
 
-| Region | Mean test Dice | Standard deviation | Test patients |
-|---|---:|---:|---:|
-| Whole tumour (WT) | 0.813 | 0.057 | 5 |
-| Tumour core (TC) | 0.777 | 0.065 | 5 |
-| Enhancing tumour (ET) | 0.754 | 0.033 | 5 |
+Note: `dataset.json` reports `release: 2.0 04/05/2018`, while the guide describes the data as BraTS 2017. Subject-level overlap with other BraTS releases is unresolved, so no claim of independence from external data is made.
 
-These values are retained as historical baseline results. They have not been independently reproduced as part of the repository documentation update. Five test patients are far too few to establish reliable generalization or clinical performance.
+## Held-out test (evaluated once, after choices were frozen)
 
-## Method details recorded for that run
+Dice computed separately for each nested region (WT = labels 1/2/3, TC = 2/3, ET = 3), per patient on all slices. Both-empty counts as 1, one-empty as 0.
 
-- Dataset: Medical Segmentation Decathlon, Task01 BrainTumour; 30 of 484 labelled cases.
-- Split: patient-level, 21/4/5, seed 42.
-- Architecture: MONAI `UNet`, `spatial_dims=2`, four MRI input channels and four label outputs, random initialization.
-- Loss/optimizer: Dice + cross-entropy loss and AdamW.
-- Training: 15 epochs, batch size 8, CPU.
-- Preprocessing: per-channel z-score normalization over non-zero voxels; no resampling; horizontal flip augmentation on training slices; empty training slices subsampled.
-- Reported test Dice was computed per patient over the complete volume.
+| Patient | WT | TC | ET |
+|---|---|---|---|
+| BRATS_102 | 0.832 | 0.698 | 0.713 |
+| BRATS_215 | 0.806 | 0.795 | 0.771 |
+| BRATS_333 | 0.841 | 0.743 | 0.806 |
+| BRATS_360 | 0.707 | 0.756 | 0.723 |
+| BRATS_367 | 0.876 | 0.891 | 0.758 |
+| **Mean ± std (n=5)** | **0.813 ± 0.057** | **0.777 ± 0.065** | **0.754 ± 0.033** |
 
-## Interpretation
+Raw numbers: `test_results.json`, `training_history.json`.
 
-The reported scores suggest that the prototype learned a non-trivial mapping on this small held-out subset. They do not show that the model generalizes to other institutions, scanners, patient populations or clinical workflows. The observed isolated false-positive fragments in 3D are consistent with the lack of volumetric context in a slice-wise 2D model.
+## Figures
 
-## Important methodological caveats
+| File | What it shows |
+|---|---|
+| `figures/training_curves.png` | Train/validation loss and validation Dice per epoch; checkpoint epoch marked |
+| `figures/test_dice_per_patient.png` | Test Dice per patient and region |
+| `figures/overlays_good_typical_difficult.png` | FLAIR slice with reference vs model overlay. BRATS_367 (best WT/TC), BRATS_215 (typical), BRATS_360 (lowest WT) |
+| `figures/BRATS_*_slices.gif` | Axial scroll through tumour slices, reference vs model |
+| `figures/BRATS_*_3d_rotation.gif` | Rotating 3D label cloud, reference vs model (display-downsampled ×3) |
 
-1. **Small cohort:** only five test patients and four validation patients. Means and standard deviations are unstable.
-2. **Validation/test mismatch:** the original training validation metric pooled sampled 2D slices, with empty slices subsampled, whereas test evaluation was computed per patient over full volumes. Those values are not directly comparable. This should be corrected before a new experiment is used to select models.
-3. **Test-set reuse:** the five historical test cases have already been inspected in reports and visualizations. They are no longer a pristine test set for future tuning.
-4. **No external validation:** no independent external dataset or site-level validation has been performed.
-5. **2D architecture:** no through-plane context; a 3D viewer does not change the model's dimensionality.
-6. **No clinical validation:** annotations and Dice scores do not establish clinical safety, diagnostic utility or patient benefit.
-7. **Dataset provenance:** verify the exact dataset release and any overlap with other BraTS releases before making claims about independent cohorts.
+## What the results show
 
-## Recommended next experiment
+- The full pipeline works end to end: patient-level split, from-scratch training, validation-based checkpointing, single held-out evaluation, export, viewer.
+- Whole tumour (WT) is the easiest region on average; enhancing tumour (ET) is the hardest and the most variable on validation (0.60 to 0.68 across epochs after the first one).
+- On the displayed slices the model's boundaries follow the reference closely for BRATS_367 and BRATS_360. On BRATS_215 the prediction finds the enhancing and non-enhancing core but misses a thin oedema streak and is more compact than the reference.
+- In 3D the model produces small isolated false-positive fragments away from the main lesion (visible in the rotation GIFs), expected from a slice-by-slice 2D model with no volumetric context.
+- BRATS_360 has the lowest WT (0.707) although its displayed slice looks close; the shortfall comes from slices not shown. The cause was not investigated.
 
-- Generate a deterministic patient-level split across all paired labelled cases (the splitter now defaults to all available cases at 70/15/15).
-- Make validation and test aggregation consistent: compute metrics per patient on full volumes, then report patient-level distributions.
-- Keep the test set untouched during model selection. Because the historical five-patient test cohort has been inspected, use a newly defined test cohort for a fresh full-cohort study.
-- Compare the 2D baseline against a justified 2.5D/3D approach and a strong established baseline (for example nnU-Net), using the same patient split and preprocessing protocol.
-- Report WT/TC/ET Dice, HD95, per-patient results, failure cases, confidence intervals where appropriate, multiple seeds if feasible, compute/memory and inference time.
-- Add ablations only when they test a stated hypothesis; do not imply that an architecture is better without controlled evidence.
+## Limitations
 
-## Reproducibility
+- **Only 5 test patients** (and 4 validation patients): the means above are noisy and cannot be taken as representative of other patients. For example, ET is higher on test (0.754) than on validation (about 0.66), while WT is lower on test (0.813) than on validation (about 0.91). With groups this small, this is most likely sampling noise.
+- **Validation and test are computed differently**: validation Dice pools the slices of all validation patients (with empty slices subsampled), whereas the test Dice is per patient on all slices. The two series are not directly comparable.
+- 30 of 484 labeled cases used; a 2D model; 15 epochs on CPU; no hyperparameter search.
+- The test set has now been used. Any further tuning would require a new held-out set.
+- The viewer renders the voxel grid and does not reorient from the NIfTI affine; alignment was not independently checked in 3D Slicer.
+- Ground-truth annotations can contain uncertainty. These scores are not clinical accuracy.
 
-```bash
-python -m brain_tumour.split --seed 42
+## Report paragraph
+
+I trained a randomly initialized 2D U-Net on 21 MSD Task01 BrainTumour patients (4 validation and 5 test patients, split by patient, seed 42; 30 of 484 labeled cases). On the 5 held-out test patients, mean Dice was 0.813 for WT, 0.777 for TC and 0.754 for ET (standard deviations 0.057, 0.065 and 0.033). The main limitations were the very small test cohort, the 2D architecture (isolated false-positive fragments in 3D), the short CPU training, and that these are research-dataset segmentation comparisons, not clinical performance.
+
+## Reproduce
+
+```
+python -m brain_tumour.split
 python -m brain_tumour.train --epochs 15 --batch-size 8
-python -m brain_tumour.evaluate
+python -m brain_tumour.evaluate          # once
+python -m brain_tumour.export BRATS_367 BRATS_215 BRATS_360
+python -m brain_tumour.report BRATS_367 BRATS_215 BRATS_360
 ```
 
-The command sequence above defines a new experiment; its outputs must replace neither historical results nor their provenance silently. Record the generated split, software versions, hardware, training arguments and checkpoint identifier with every run.
+Data: Medical Segmentation Decathlon, Task01 BrainTumour, CC BY-SA 4.0. Figures show slices derived from this dataset (z-score normalized, annotated overlays); see `ATTRIBUTION.md`.
