@@ -58,7 +58,7 @@ export default function PlaneView({ axis, mri, channel, mask, cursor, onCursor, 
     ctx.putImageData(img, 0, 0);
     // crosshair
     const [cu, cw] = axis === "axial" ? [cursor[0], cursor[1]] : axis === "coronal" ? [cursor[0], cursor[2]] : [cursor[1], cursor[2]];
-    ctx.strokeStyle = "rgba(0,255,120,0.8)";
+    ctx.strokeStyle = "rgba(138,181,167,0.88)";
     ctx.lineWidth = 1;
     ctx.beginPath();
     ctx.moveTo(cu + 0.5, 0); ctx.lineTo(cu + 0.5, H);
