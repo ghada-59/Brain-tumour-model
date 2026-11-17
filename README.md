@@ -6,9 +6,9 @@
 
 The redesigned dashboard provides six sections: **Overview**, **MRI & Segmentation**, **3D Review**, **Model Evaluation**, **Methodology** and **Limitations**.
 
-**Online dashboard:** [https://ghada-59.github.io/Brain-tumour-model/](https://ghada-59.github.io/Brain-tumour-model/)
+**Online dashboard:** Vercel deployment is being configured. The public URL will be added here after the first successful deployment.
 
-> The public URL becomes active after the GitHub Pages deployment workflow succeeds and Pages is enabled for this repository. The MRI viewer preserves the original linked-plane and Three.js components. Exported NIfTI case volumes are intentionally excluded from the public site; the viewer displays an explicit empty state until local case exports are available.
+> The MRI viewer preserves the original linked-plane and Three.js components. Exported NIfTI case volumes are intentionally excluded from the public site; the viewer displays an explicit empty state until local case exports are available.
 
 ### Dashboard visual evidence
 
