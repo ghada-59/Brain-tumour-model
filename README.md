@@ -1,8 +1,39 @@
 # 3D Brain Tumour Model
 
+> Educational research prototype using de-identified research data. **Not a medical device**, not clinically validated, and never for diagnosis or health decisions.
+
+## Research dashboard
+
+The redesigned dashboard provides six sections: **Overview**, **MRI & Segmentation**, **3D Review**, **Model Evaluation**, **Methodology** and **Limitations**.
+
+**Online dashboard (preview):** https://brain-tumour-model-git-ui-brain-tumour-dashboard-pages-gh-0fe7.vercel.app/
+
+> The MRI viewer preserves the original linked-plane and Three.js components. Exported NIfTI case volumes are intentionally excluded from the public site; the viewer displays an explicit empty state until local case exports are available.
+
+### Dashboard visual evidence
+
+**Qualitative MRI overlays**
+
+![Research MRI overlays](reports/figures/overlays_good_typical_difficult.png)
+
+**Training and validation history**
+
+![Training curves](reports/figures/training_curves.png)
+
+**Patient-level historical Dice**
+
+![Patient-level Dice](reports/figures/test_dice_per_patient.png)
+
+**3D segmentation visualization**
+
+![3D label visualization](reports/figures/BRATS_367_3d_rotation.gif)
+
+The dashboard displays the committed figures and historical metrics with explicit provenance labels. The reported baseline is not reproduced by the dashboard build and does not establish clinical performance.
+
+---
+
 Educational pipeline: brain MRI (MSD Task01 BrainTumour) → patient-level split → **from-scratch 2D U-Net** (MONAI/PyTorch) → honest held-out evaluation (Dice WT/TC/ET) → local React + TypeScript + Three.js viewer with linked axial/coronal/sagittal planes and a 3D mask.
 
-> Student learning prototype on de-identified research data. **Not a medical device**, not clinically validated, never for diagnosis or health decisions.
 
 ## Layout
 

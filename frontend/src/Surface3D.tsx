@@ -21,7 +21,7 @@ export default function Surface3D({ mask, opacity, resetSignal }: Props) {
     const el = host.current!;
     const w = el.clientWidth, h = 420;
     const scene = new THREE.Scene();
-    scene.background = new THREE.Color(0x111418);
+    scene.background = new THREE.Color(0x201a2b);
     const camera = new THREE.PerspectiveCamera(45, w / h, 0.1, 2000);
     camera.position.set(0, 0, 220);
     const renderer = new THREE.WebGLRenderer({ antialias: true });
