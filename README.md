@@ -6,7 +6,7 @@
 
 The redesigned dashboard provides six sections: **Overview**, **MRI & Segmentation**, **3D Review**, **Model Evaluation**, **Methodology** and **Limitations**.
 
-**Online dashboard:** Vercel deployment is being configured. The public URL will be added here after the first successful deployment.
+**Online dashboard (preview):** https://brain-tumour-model-git-ui-brain-tumour-dashboard-pages-gh-0fe7.vercel.app/
 
 > The MRI viewer preserves the original linked-plane and Three.js components. Exported NIfTI case volumes are intentionally excluded from the public site; the viewer displays an explicit empty state until local case exports are available.
 
